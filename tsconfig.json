@@ -1,0 +1,47 @@
+
+{
+  "compilerOptions": {
+    // Declare TSLint rule file
+    "plugins": [{ "configFile": "./tslint.json" }],
+    // Process & infer types from .js files.
+    "allowJs": true,
+    // For typechecking purposes, allow default exports from files without them
+    "allowSyntheticDefaultImports": true,
+    // Next line for webpack import aliases
+    "baseUrl": "./",
+    // Emit metadata for decorators
+    "emitDecoratorMetadata": true,
+    // // Import non-ES modules as default imports.
+    // "esModuleInterop": true,
+    // Include decorator support
+    "experimentalDecorators": true,
+    // Disallow features that require cross-file information for emit.
+    "isolatedModules": false,
+		// So we can import modules with require
+		"module": "es2015",
+    // Search under node_modules for non-relative imports.
+    "moduleResolution": "node",
+    // Don't emit; allow Babel to transform files.
+    "noEmit": true,
+    // Warn on types implicitly defined as `any`
+    "noImplicitAny": true,
+    // So we can import json
+    "resolveJsonModule": true,
+    // Don't type scheck *.d.ts files
+    "skipLibCheck": true,
+    // Enable strictest settings like strictNullChecks & noImplicitAny.
+    "strict": true,
+    "strictPropertyInitialization": false,
+    // Target latest version of ECMAScript.
+    "target": "esnext",
+  },
+  "exclude": [
+    "src/db/migration"
+  ],
+  "include": [
+    "src",
+    "src/**/*",
+    "src/types",
+    "src/types/**/*.d.ts"
+  ]
+}
