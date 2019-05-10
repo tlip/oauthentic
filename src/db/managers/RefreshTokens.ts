@@ -53,15 +53,26 @@ class RefreshTokens {
 
     try {
       const repository = getRepository(RefreshToken);
-      const refreshToken = await repository.find({ clientId, userId });
-      await repository.remove(refreshToken);
+      const refreshToken: RefreshToken | undefined = await repository.findOne({ clientId, userId });
+      if (refreshToken){ return await repository.remove(refreshToken); }
+      return undefined;
     } catch (error) {
       signale.error('[RefreshTokensOperationError :: revokeByUserIdAndClientId]');
       throw error;
     }
-
-    return;
   
+  }
+
+  static revoke = async (refreshToken: RefreshToken)
+  : Promise<RefreshTokens.ReturnValue> => {
+
+    try {
+      return await getRepository(RefreshToken).remove(refreshToken);
+    } catch (error) {
+      signale.error('[RefreshTokensOperationError :: revoke]');
+      throw error;
+    }
+
   }
 
 }
