@@ -67,25 +67,31 @@ server.exchange(oauth2orize.exchange.code(
   async (client, code, redirectUri, done) => {
 
     let auth: AuthorizationCode | undefined;
-    let token = crypto.randomBytes(128).toString('hex');
 
+    // Get Authorization Code
     try {
       auth = await db.AuthorizationCodes.findByCode(code);
+      if (!auth) { return done(null, false); }
+      else if (auth!.clientId !== client.clientId) { return done(null, false); }
+      else if (auth!.redirectUri !== redirectUri) { return done(null, false); }
     } catch (error) {
       signale.error('[CodeExchangeError :: Fetching Authoriztion Code]');
       return done(error);
     }
-    
-    if (auth!.clientId !== client.clientId) {
-      return done(null, false);
-    } else if (auth!.redirectUri !== redirectUri) {
-      return done(null, false);
+
+    // Revoke Authorization Code
+    try {
+      await db.AuthorizationCodes.revoke(auth);
+    } catch (error) {
+      signale.error('[CodeExchangeError :: Revoking Authorization Code]');
+      return done(error);
     }
 
+    // Issue Access Token & Refresh Token 
     try {
       await issueTokens(auth!.userId, client.clientId, done);
     } catch (error) {
-      signale.error('[CodeExchangeError :: Issuing Tokens]');
+      signale.error('[CodeExchangeError :: Issuing Access & Refresh Tokens]');
       return done(error);
     }
 
@@ -97,7 +103,6 @@ server.exchange(oauth2orize.exchange.password(
 
     let _client: Client | undefined;
     let user: User | undefined;
-    const token = crypto.randomBytes(128).toString('hex');
 
     try {
       _client = await db.Clients.findByClientId(client.clientId);
@@ -138,7 +143,6 @@ server.exchange(oauth2orize.exchange.password(
 server.exchange(oauth2orize.exchange.clientCredentials(
   async (client, scope, done) => {
 
-    const token = crypto.randomBytes(128).toString('hex');
     let _client: Client | undefined;
 
     try {
@@ -163,47 +167,43 @@ server.exchange(oauth2orize.exchange.clientCredentials(
 ));
 
 server.exchange(oauth2orize.exchange.refreshToken(
-  async (client, token, scope, done) => {
+  async (client, oldRefreshToken, scope, done) => {
     
     let refreshToken: RefreshToken | undefined;
-    let accessToken: AccessToken | undefined;
+    let tokens: { rToken: string, aToken: string };
     const getToken = (err: Error, aToken: string, rToken: string) => {
       if (err) {
         signale.error('[RefreshExchangeError :: Issuing Tokens :: returnIssuedTokens]');
         throw err;
       }
-      return rToken;
+      return { aToken, rToken };
     };
 
     try {
-      refreshToken = await db.RefreshTokens.find(token);
-      if (refreshToken) {
-        const rToken = await issueTokens(refreshToken!.userId, refreshToken!.clientId, getToken);
-        refreshToken = await db.RefreshTokens.find(rToken);
-      }
+      refreshToken = await db.RefreshTokens.find(oldRefreshToken);
+      if (refreshToken) { await db.RefreshTokens.revoke(refreshToken); }
       else { return done(null, false); }
     } catch (error) {
-      signale.error('[RefreshExchangeError :: Issuing Tokens]');
+      signale.error('[RefreshExchangeError :: Revoking Refresh Token]');
       return done(error);
     }
 
     try {
-      accessToken = await db.AccessTokens.revoke(refreshToken!.userId, refreshToken!.clientId);
+      const accessToken = await db.AccessTokens.revoke(refreshToken.userId, refreshToken.clientId);
       if (!accessToken) { return done(null, false); }
     } catch (error) {
       signale.error('[RefreshExchangeError :: Revoking Access Token]');
       return done(error);
     }
-
+    
     try {
-      await db.RefreshTokens
-        .revokeByUserIdAndClientId(refreshToken!.userId, refreshToken!.clientId);
+      tokens = await issueTokens(refreshToken.userId, refreshToken.clientId, getToken);
     } catch (error) {
-      signale.error('[RefreshExchangeError :: Removnig Refresh Token]');
+      signale.error('[RefreshExchangeError :: Issuing Tokens]');
       return done(error);
     }
 
-    return done(null, accessToken.token, refreshToken!.token);
+    return done(null, tokens.aToken, tokens.rToken, { expires: 3600 });
 
   }
 ));
