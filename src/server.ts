@@ -20,7 +20,6 @@ server
   .use(morgan(isProd ? 'combined' : 'dev'))
   .use(bodyParser.json())
   .use(bodyParser.urlencoded({ extended: false }))
-  .use(cors())
   .use(errorHandler())
   .use(session({
     secret: <string>process.env.REDIS_SESSION_SECRET,

@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import signale from 'signale';
 
 import db from '../../db';
+import { User } from 'src/db/entity/User.entity';
 
 export const info = [
   passport.authenticate('bearer', { session: false }),
@@ -18,16 +19,20 @@ export const info = [
 export const register = async (req: any, res: any) => {
 
   const { username, password } = req.body;
-  const existingUser = await db.Users.findByUsername(username);
   const passwordMatch = (password || '').match(
     /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/
-  );
-
+    );
+    
+  let existingUser: User | undefined;
   let [statusCode, message] = [200, 'User created!'];
-
-  if (existingUser instanceof Error) {
+  
+  try {
+    existingUser = await db.Users.findByUsername(username);
+  } catch (error) {
     [statusCode, message] = [500, 'Something went wrong registering user'];
-  } else if (existingUser) {
+  }
+  
+  if (existingUser) {
     [statusCode, message] = [409, 'Username already exists'];
   } else if (passwordMatch === null) {
     [statusCode, message] = [418, 'Password doesn\'t meet requirements'];
@@ -36,10 +41,7 @@ export const register = async (req: any, res: any) => {
   if (statusCode === 200) {
     try{
       const hash = await bcrypt.hash(password, 10);
-      const user = await db.Users.save(username, hash);
-      if (!user || user instanceof Error) {
-        [statusCode, message] = [500, 'Something went wrong registering user'];
-      }
+      await db.Users.save(username, hash);
     } catch (error) {
       [statusCode, message] = [500, 'Something went wrong registering user'];
       signale.error(error);
